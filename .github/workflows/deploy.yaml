@@ -111,7 +111,7 @@ jobs:
             -var 'project_name_no_dash=${{ vars.PROJECT_NAME_NODASH }}'
 
         # Terraform Apply
-        - name: Terraform Apply
+      - name: Terraform Apply
         working-directory: terraform
         run: |
             terraform apply -auto-approve \
