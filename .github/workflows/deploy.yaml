@@ -67,7 +67,7 @@ jobs:
 
       # bank_pull
       - name: bank_pull app - build docker image
-        working-directory: go_fio_pull
+        working-directory: src
         run: |
           docker build  -t ${{ vars.ACR_NAME }}.azurecr.io/bank_pull:main .
 
