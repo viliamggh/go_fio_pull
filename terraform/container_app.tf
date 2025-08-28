@@ -36,7 +36,7 @@ resource "azurerm_container_app" "bank_pull" {
   }
   template {
     container {
-      name   = var.image_name
+      name   = replace(var.image_name, "_", "")
       image  = "${data.azurerm_container_registry.acr.login_server}/${var.image_name}:${var.environment}"
       cpu    = 0.25
       memory = "0.5Gi"
