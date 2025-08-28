@@ -88,7 +88,7 @@ jobs:
       - name: Create runtime tfbackend.conf
         working-directory: terraform
         run: |
-            cat > .env <<EOF
+            cat > tfbackend.conf <<EOF
             resource_group_name  = ${{ vars.RG_NAME }}
             storage_account_name = ${{ vars.STORAGE_ACCOUNT_NAME }}
             container_name       = ${{ vars.CONTAINER_NAME }}
