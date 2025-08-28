@@ -82,3 +82,14 @@ echo $(az identity show --name $IDENTITY_NAME --resource-group $RESOURCE_GROUP_N
 echo $ACR_NAME | gh variable set ACR_NAME --repo $REPO_NAME
 echo $RESOURCE_GROUP_NAME | gh variable set RG_NAME --repo $REPO_NAME
 echo $IDENTITY_NAME | gh variable set IDENTITY_NAME --repo $REPO_NAME
+echo $STORAGE_ACCOUNT_NAME | gh variable set STORAGE_ACCOUNT_NAME --repo $REPO_NAME
+echo $CONTAINER_NAME | gh variable set CONTAINER_NAME --repo $REPO_NAME
+echo $PROJECT_NAME_NODASH | gh variable set PROJECT_NAME_NODASH --repo $REPO_NAME
+
+#  tfbackend.conf for local tf connection
+cat > tfbackend.conf <<EOF
+resource_group_name  = "$RESOURCE_GROUP_NAME"
+storage_account_name = "$STORAGE_ACCOUNT_NAME"
+container_name       = "$CONTAINER_NAME"
+key                  = "terraform.tfstate"
+EOF

@@ -12,3 +12,6 @@ __azurite_db*__.json
 
 *token*
 terraform/.terraform/
+
+.env
+tfbackend.conf
