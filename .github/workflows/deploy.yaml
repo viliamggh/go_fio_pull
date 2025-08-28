@@ -1,0 +1,85 @@
+name: 'Terraform Plan/Apply'
+
+on:
+  workflow_dispatch:
+    inputs:
+      tf_apply:
+        description: 'Run Terraform apply?'
+        required: false
+        type: string
+        default: "true"
+  push:
+    branches:
+    - main
+    - dev
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  UAMI_ID: ${{ vars.UAMI_ID }}
+  ARM_SUBSCRIPTION_ID: "${{ vars.SUB_ID }}"
+  ARM_TENANT_ID: "${{ vars.TENANT_ID }}"
+
+jobs:
+
+  build-image:
+    name: Image Build
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Azure using Federated Credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.UAMI_ID }}
+          tenant-id: ${{ vars.TENANT_ID }}
+          subscription-id: ${{ vars.SUB_ID }}
+
+    #   - name: Docker Login
+    #     uses: azure/docker-login@v1
+    #     with:
+    #       login-server: ${{ env.ACR_PREFIX }}${{ env.ENVIRONMENT_TAG }}
+    #       username: ${{ secrets.INFRA_CLIENT_ID }}
+    #       password: ${{ secrets.INFRA_CLIENT_SECRET }}
+      
+    #   - name: login to ACR 
+    #     run: |
+    #       echo ${{ env.ARM_CLIENT_SECRET }} | docker login ${{ env.ACR_PREFIX }}${{ env.ENVIRONMENT_TAG }}.azurecr.io -u ${{ env.ARM_CLIENT_ID }} --password-stdin
+
+      - name: Get ACR access token
+        id: acrtoken
+        run: |
+          TOKEN=$(az acr login --name ${{ vars.ACR_NAME }} --expose-token --query accessToken -o tsv)
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Docker login to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: "${{ vars.ACR_NAME }}.azurecr.io"
+          username: 00000000-0000-0000-0000-000000000000
+          password: ${{ steps.acrtoken.outputs.token }}
+
+      # bank_pull
+      - name: bank_pull app - build docker image
+        working-directory: go_fio_pull
+        run: |
+          docker build  -t ${{ vars.ACR_NAME }}.azurecr.io/bank_pull:main .
+
+      - name: bank_pull app - push to ACR
+        run: |
+          docker push ${{ vars.ACR_NAME }}.azurecr.io/bank_pull:main
+
+    #   # db_push
+    #   - name: db_push app - build docker image
+    #     working-directory: go_db_push
+    #     run: |
+    #       docker build  -t ${{ env.ACR_PREFIX }}${{ env.ENVIRONMENT_TAG }}.azurecr.io/db_push:tst .
+
+    #   - name: db_push app - push to ACR
+    #     run: |
+    #       docker push ${{ env.ACR_PREFIX }}${{ env.ENVIRONMENT_TAG }}.azurecr.io/db_push:tst
