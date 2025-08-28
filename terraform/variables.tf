@@ -9,3 +9,13 @@ variable "rg_name" {
 variable "project_name_no_dash" {
   type = string
 }
+
+variable "image_name" {
+  type = string
+  default ="bank_pull"
+}
+
+variable "environment" {
+  type =string
+  default = "main"
+}
