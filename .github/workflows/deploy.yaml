@@ -102,22 +102,19 @@ jobs:
       - name: Terraform Format
         working-directory: terraform
         run: terraform fmt -check
-
-      # Terraform Plan
       - name: Terraform Plan
         working-directory: terraform
         run: |
-          terraform plan \
-          -var 'acr_name=${{ vars.ACR_NAME }}' \
-          -var 'rg_name=${{ vars.RG_NAME }}' \ 
-          -var 'project_name_no_dash=${{ vars.PROJECT_NAME_NODASH }}'
-    
-      # Terraform Apply
-      - name: Terraform Apply
-        # if: ${{ inputs.tf_apply == 'true' }}
+            terraform plan \
+            -var 'acr_name=${{ vars.ACR_NAME }}' \
+            -var 'rg_name=${{ vars.RG_NAME }}' \
+            -var 'project_name_no_dash=${{ vars.PROJECT_NAME_NODASH }}'
+
+        # Terraform Apply
+        - name: Terraform Apply
         working-directory: terraform
-        run: | 
-          terraform apply -auto-approve  \
-          -var 'acr_name=${{ vars.ACR_NAME }}' \
-          -var 'rg_name=${{ vars.RG_NAME }}' \ 
-          -var 'project_name_no_dash=${{ vars.PROJECT_NAME_NODASH }}'
+        run: |
+            terraform apply -auto-approve \
+            -var 'acr_name=${{ vars.ACR_NAME }}' \
+            -var 'rg_name=${{ vars.RG_NAME }}' \
+            -var 'project_name_no_dash=${{ vars.PROJECT_NAME_NODASH }}'
