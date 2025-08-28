@@ -11,11 +11,11 @@ variable "project_name_no_dash" {
 }
 
 variable "image_name" {
-  type = string
+  type    = string
   default = "bank_pull"
 }
 
 variable "environment" {
-  type = string
+  type    = string
   default = "main"
 }
