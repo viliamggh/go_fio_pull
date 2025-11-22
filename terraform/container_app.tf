@@ -6,7 +6,7 @@ resource "azurerm_container_app" "bank_pull" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.c_app_identity.id]
+    identity_ids = [local.app_identity_id]
   }
   # identity {
   #   type = "SystemAssigned"
@@ -32,7 +32,7 @@ resource "azurerm_container_app" "bank_pull" {
   }
   registry {
     server   = local.acr_login_server
-    identity = azurerm_user_assigned_identity.c_app_identity.id
+    identity = local.app_identity_id
   }
   template {
     container {
@@ -43,12 +43,12 @@ resource "azurerm_container_app" "bank_pull" {
 
       env {
         name  = "AZURE_CLIENT_ID"
-        value = azurerm_user_assigned_identity.c_app_identity.client_id
+        value = local.app_identity_client_id
       }
 
       env {
         name  = "AZURE_TENANT_ID"
-        value = azurerm_user_assigned_identity.c_app_identity.tenant_id
+        value = local.app_identity_tenant_id
       }
 
       env {

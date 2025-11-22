@@ -49,6 +49,12 @@ locals {
   acr_login_server         = data.terraform_remote_state.core_infra.outputs.container_registry_login_server
   acr_id                   = data.terraform_remote_state.core_infra.outputs.container_registry_id
   storage_container_name   = data.terraform_remote_state.core_infra.outputs.storage_container_raw_name
+  
+  # Shared application identity (from fin_az_core)
+  app_identity_id          = data.terraform_remote_state.core_infra.outputs.app_identity_id
+  app_identity_client_id   = data.terraform_remote_state.core_infra.outputs.app_identity_client_id
+  app_identity_principal_id = data.terraform_remote_state.core_infra.outputs.app_identity_principal_id
+  app_identity_tenant_id   = data.terraform_remote_state.core_infra.outputs.app_identity_tenant_id
 }
 
 resource "azurerm_container_app_environment" "c_app_env" {
@@ -58,38 +64,10 @@ resource "azurerm_container_app_environment" "c_app_env" {
   # log_analytics_workspace_id = azurerm_log_analytics_workspace.example.id
 }
 
-resource "azurerm_user_assigned_identity" "c_app_identity" {
-  location            = local.app_rg_location
-  name                = "${var.project_name_no_dash}acaid"
-  resource_group_name = local.app_rg_name
-}
-
 resource "null_resource" "always_run" {
   triggers = {
     timestamp = "${timestamp()}"
   }
-}
-
-resource "azurerm_role_assignment" "c_app_acrpull" {
-  scope                = local.acr_id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_user_assigned_identity.c_app_identity.principal_id
-}
-
-resource "azurerm_role_assignment" "c_app_storage_access" {
-  scope                = local.storage_account_id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_user_assigned_identity.c_app_identity.principal_id
-
-  depends_on = [azurerm_container_app.bank_pull]
-}
-
-resource "azurerm_role_assignment" "c_app_keyvault_access" {
-  scope                = local.key_vault_id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.c_app_identity.principal_id
-
-  depends_on = [azurerm_container_app.bank_pull]
 }
 
 
