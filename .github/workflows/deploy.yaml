@@ -71,7 +71,7 @@ jobs:
 
   infra-deploy:
     environment: main
-    # needs: build-images
+    needs: build-images
     name: 'Az Infra Deploy'
     runs-on: ubuntu-latest
 
