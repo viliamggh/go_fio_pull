@@ -16,7 +16,21 @@ import (
 
 const format = "json"
 
-var debug = os.Getenv("DEBUG") != ""
+var (
+	debug                = os.Getenv("DEBUG") != ""
+	keyVaultURL          = getEnvOrDefault("KEY_VAULT_URL", "https://kv-fintrack-dev.vault.azure.net")
+	storageAccountURL    = getEnvOrDefault("STORAGE_ACCOUNT_URL", "https://safintrackdev.blob.core.windows.net/")
+	storageContainerName = getEnvOrDefault("STORAGE_CONTAINER_NAME", "raw")
+)
+
+// getEnvOrDefault retrieves an environment variable or returns a default value.
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	log.Printf("Warning: %s not set, using default: %s", key, defaultValue)
+	return defaultValue
+}
 
 func main() {
 	// Configure the logger for local development.
@@ -54,7 +68,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	// Construct a blob name and upload the API response.
 	blobName := fmt.Sprintf("transactions_%s_%s.json", startDate, endDate)
-	result, err := writeBlob(*cred, "raw", blobName, data)
+	result, err := writeBlob(*cred, storageContainerName, blobName, data)
 	if err != nil {
 		log.Printf("Error writing blob: %v\n", err)
 		fmt.Fprintf(w, "\nError writing blob: %v", err)
@@ -88,8 +102,7 @@ func azAuth() (*azidentity.DefaultAzureCredential, error) {
 
 // retrieveKvSecret retrieves a secret from Azure Key Vault.
 func retrieveKvSecret(secretName string, cred *azidentity.DefaultAzureCredential) (string, error) {
-	// TODO: parametrize keyvault
-	client, err := azsecrets.NewClient("https://kv-fintrack-dev.vault.azure.net", cred, nil)
+	client, err := azsecrets.NewClient(keyVaultURL, cred, nil)
 	if err != nil {
 		log.Printf("Failed to create KeyVault client: %v\n", err)
 		return "", err
@@ -132,8 +145,7 @@ func FetchTransactionData(token, startDate, endDate, format string) ([]byte, err
 
 // writeBlob uploads the given data as a blob to the specified container.
 func writeBlob(cred azidentity.DefaultAzureCredential, containerName, blobName string, data []byte) (string, error) {
-	url := "https://safintrackdev.blob.core.windows.net/"
-	client, err := azblob.NewClient(url, &cred, nil)
+	client, err := azblob.NewClient(storageAccountURL, &cred, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create blob client: %w", err)
 	}

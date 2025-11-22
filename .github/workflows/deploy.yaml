@@ -25,43 +25,49 @@ env:
 
 jobs:
 
-#   build-image:
-#     environment: main
-#     name: Image Build
-#     runs-on: ubuntu-latest
-#     steps:
-#       # Checkout the repository to the GitHub Actions runner
-#       - name: Checkout
-#         uses: actions/checkout@v4
+  build-image:
+    environment: main
+    name: Image Build
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v4
 
-#       - name: Login to Azure using Federated Credentials
-#         uses: azure/login@v2
-#         with:
-#           client-id: ${{ vars.UAMI_ID }}
-#           tenant-id: ${{ vars.TENANT_ID }}
-#           subscription-id: ${{ vars.SUB_ID }}
+      - name: Load infrastructure configuration
+        id: config
+        run: |
+          CORE_ACR_NAME=$(yq '.core_infra.resources.acr_name' .infra-refs.yaml)
+          echo "core_acr_name=$CORE_ACR_NAME" >> $GITHUB_OUTPUT
 
-#       - name: Get ACR access token
-#         id: acrtoken
-#         run: |
-#           TOKEN=$(az acr login --name ${{ vars.ACR_NAME }} --expose-token --query accessToken -o tsv)
-#           echo "token=$TOKEN" >> $GITHUB_OUTPUT
+      - name: Login to Azure using Federated Credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.UAMI_ID }}
+          tenant-id: ${{ vars.TENANT_ID }}
+          subscription-id: ${{ vars.SUB_ID }}
 
-#       - name: Docker login to ACR
-#         uses: docker/login-action@v3
-#         with:
-#           registry: "${{ vars.ACR_NAME }}.azurecr.io"
-#           username: 00000000-0000-0000-0000-000000000000
-#           password: ${{ steps.acrtoken.outputs.token }}
+      - name: Get ACR access token
+        id: acrtoken
+        run: |
+          TOKEN=$(az acr login --name ${{ steps.config.outputs.core_acr_name }} --expose-token --query accessToken -o tsv)
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-#       - name: bank_pull app - build docker image
-#         working-directory: src
-#         run: |
-#           docker build  -t ${{ vars.ACR_NAME }}.azurecr.io/bank_pull:main .
+      - name: Docker login to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: "${{ steps.config.outputs.core_acr_name }}.azurecr.io"
+          username: 00000000-0000-0000-0000-000000000000
+          password: ${{ steps.acrtoken.outputs.token }}
 
-#       - name: bank_pull app - push to ACR
-#         run: |
-#           docker push ${{ vars.ACR_NAME }}.azurecr.io/bank_pull:main
+      - name: bank_pull app - build docker image
+        working-directory: src
+        run: |
+          docker build  -t ${{ steps.config.outputs.core_acr_name }}.azurecr.io/bank_pull:main .
+
+      - name: bank_pull app - push to ACR
+        run: |
+          docker push ${{ steps.config.outputs.core_acr_name }}.azurecr.io/bank_pull:main
 
   infra-deploy:
     environment: main
@@ -85,6 +91,19 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
+          
+      - name: Load infrastructure configuration
+        id: tf_config
+        run: |
+          CORE_RG=$(yq '.core_infra.terraform_backend.resource_group_name' .infra-refs.yaml)
+          CORE_SA=$(yq '.core_infra.terraform_backend.storage_account_name' .infra-refs.yaml)
+          CORE_CONTAINER=$(yq '.core_infra.terraform_backend.container_name' .infra-refs.yaml)
+          CORE_KEY=$(yq '.core_infra.terraform_backend.key' .infra-refs.yaml)
+          echo "core_rg=$CORE_RG" >> $GITHUB_OUTPUT
+          echo "core_sa=$CORE_SA" >> $GITHUB_OUTPUT
+          echo "core_container=$CORE_CONTAINER" >> $GITHUB_OUTPUT
+          echo "core_key=$CORE_KEY" >> $GITHUB_OUTPUT
+          
       - name: Create runtime tfbackend.conf
         working-directory: terraform
         run: |
@@ -106,15 +125,21 @@ jobs:
         working-directory: terraform
         run: |
             terraform plan \
-            -var 'acr_name=${{ vars.ACR_NAME }}' \
             -var 'rg_name=${{ vars.RG_NAME }}' \
-            -var 'project_name_no_dash=${{ vars.PROJECT_NAME_NODASH }}'
+            -var 'project_name_no_dash=${{ vars.PROJECT_NAME_NODASH }}' \
+            -var 'core_infra_rg=${{ steps.tf_config.outputs.core_rg }}' \
+            -var 'core_infra_sa=${{ steps.tf_config.outputs.core_sa }}' \
+            -var 'core_infra_container=${{ steps.tf_config.outputs.core_container }}' \
+            -var 'core_infra_key=${{ steps.tf_config.outputs.core_key }}'
 
         # Terraform Apply
       - name: Terraform Apply
         working-directory: terraform
         run: |
             terraform apply -auto-approve \
-            -var 'acr_name=${{ vars.ACR_NAME }}' \
             -var 'rg_name=${{ vars.RG_NAME }}' \
-            -var 'project_name_no_dash=${{ vars.PROJECT_NAME_NODASH }}'
+            -var 'project_name_no_dash=${{ vars.PROJECT_NAME_NODASH }}' \
+            -var 'core_infra_rg=${{ steps.tf_config.outputs.core_rg }}' \
+            -var 'core_infra_sa=${{ steps.tf_config.outputs.core_sa }}' \
+            -var 'core_infra_container=${{ steps.tf_config.outputs.core_container }}' \
+            -var 'core_infra_key=${{ steps.tf_config.outputs.core_key }}'

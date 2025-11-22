@@ -16,79 +16,52 @@ provider "azurerm" {
 }
 
 data "azurerm_client_config" "current" {}
-data "azurerm_resource_group" "rg" {
+
+# Reference core infrastructure from fin_az_core Terraform state
+data "terraform_remote_state" "core_infra" {
+  backend = "azurerm"
+  config = {
+    resource_group_name  = var.core_infra_rg
+    storage_account_name = var.core_infra_sa
+    container_name       = var.core_infra_container
+    key                  = var.core_infra_key
+  }
+}
+
+# Data source for go_fio_pull's OWN resource group (for app resources)
+data "azurerm_resource_group" "app_rg" {
   name = var.rg_name
 }
-data "azurerm_container_registry" "acr" {
-  name                = var.acr_name
-  resource_group_name = data.azurerm_resource_group.rg.name
-}
-# data "azurerm_user_assigned_identity" "cicd_principal" {
-#   name                = "name_of_user_assigned_identity"
-#   resource_group_name = "name_of_resource_group"
-# }
 
-resource "azurerm_key_vault" "kv" {
-  name                        = "${var.project_name_no_dash}kv"
-  location                    = data.azurerm_resource_group.rg.location
-  resource_group_name         = data.azurerm_resource_group.rg.name
-  enabled_for_disk_encryption = true
-  tenant_id                   = data.azurerm_client_config.current.tenant_id
-  soft_delete_retention_days  = 7
-  purge_protection_enabled    = false
-  enable_rbac_authorization   = true
-
-  sku_name = "standard"
-}
-
-# resource "azurerm_role_assignment" "kv_rbac_vg" {
-#   scope                = azurerm_key_vault.kv.id
-#   role_definition_name = "Key Vault Secrets Officer"
-#   principal_id         = "032fd23a-f163-4727-ba07-4260f5daa653"
-# }
-
-resource "azurerm_storage_account" "sa" {
-  name                            = "${var.project_name_no_dash}sa"
-  location                        = data.azurerm_resource_group.rg.location
-  resource_group_name             = data.azurerm_resource_group.rg.name
-  account_tier                    = "Standard"
-  account_replication_type        = "LRS"
-  public_network_access_enabled   = true
-  default_to_oauth_authentication = true
-
-  # network_rules {
-  #   // Deny all by default
-  #   default_action = "Deny"
-
-  #   // Let Azure services bypass the network restrictions
-  #   // (Logging, Metrics, AzureServices can be added if desired)
-  #   bypass = [
-  #     "AzureServices"
-  #   ]
-
-  #   # // Only allow public access from this IP address
-  #   # ip_rules = [
-  #   #   "109.81.90.2"
-  #   # ]
-  # }
-}
-
-resource "azurerm_storage_container" "data_cont" {
-  name               = "raw"
-  storage_account_id = azurerm_storage_account.sa.id
+# Local variables for go_fio_pull's own resources
+locals {
+  # App resource group (where Container App lives)
+  app_rg_name     = data.azurerm_resource_group.app_rg.name
+  app_rg_location = data.azurerm_resource_group.app_rg.location
+  
+  # Core infrastructure references (from fin_az_core remote state)
+  storage_account_name     = data.terraform_remote_state.core_infra.outputs.storage_account_name
+  storage_account_url      = data.terraform_remote_state.core_infra.outputs.storage_account_url
+  storage_account_id       = data.terraform_remote_state.core_infra.outputs.storage_account_id
+  key_vault_url            = data.terraform_remote_state.core_infra.outputs.key_vault_url
+  key_vault_name           = data.terraform_remote_state.core_infra.outputs.key_vault_name
+  key_vault_id             = data.terraform_remote_state.core_infra.outputs.key_vault_id
+  acr_login_server         = data.terraform_remote_state.core_infra.outputs.container_registry_login_server
+  acr_id                   = data.terraform_remote_state.core_infra.outputs.container_registry_id
+  storage_container_name   = data.terraform_remote_state.core_infra.outputs.storage_container_raw_name
 }
 
 resource "azurerm_container_app_environment" "c_app_env" {
   name                = "${var.project_name_no_dash}cae"
-  location            = data.azurerm_resource_group.rg.location
-  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = local.app_rg_location
+  resource_group_name = local.app_rg_name
   # log_analytics_workspace_id = azurerm_log_analytics_workspace.example.id
 }
 
 resource "azurerm_user_assigned_identity" "c_app_identity" {
-  location            = data.azurerm_resource_group.rg.location
+  location            = local.app_rg_location
   name                = "${var.project_name_no_dash}acaid"
-  resource_group_name = data.azurerm_resource_group.rg.name
+  resource_group_name = local.app_rg_name
 }
 
 resource "null_resource" "always_run" {
@@ -98,19 +71,27 @@ resource "null_resource" "always_run" {
 }
 
 resource "azurerm_role_assignment" "c_app_acrpull" {
-  scope                = data.azurerm_container_registry.acr.id
+  scope                = local.acr_id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_user_assigned_identity.c_app_identity.principal_id
-  # principal_id = azurerm_container_app.example.identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "c_app_storage_access" {
-  scope                = azurerm_storage_account.sa.id
+  scope                = local.storage_account_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.c_app_identity.principal_id
 
   depends_on = [azurerm_container_app.bank_pull]
 }
+
+resource "azurerm_role_assignment" "c_app_keyvault_access" {
+  scope                = local.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.c_app_identity.principal_id
+
+  depends_on = [azurerm_container_app.bank_pull]
+}
+
 
 
 

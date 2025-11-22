@@ -1,0 +1,16 @@
+# Central configuration for cross-repository infrastructure references
+# This file documents the dependencies on fin_az_core infrastructure
+
+# Core Infrastructure Repository: fin_az_core
+core_infra:
+  # Terraform Remote State Backend (where fin_az_core state is stored)
+  terraform_backend:
+    resource_group_name: "finazcore251027-rg"
+    storage_account_name: "finazcore251027sttf"
+    container_name: "terraform-state"
+    key: "terraform.tfstate"
+  
+  # Shared Infrastructure Resources (managed by fin_az_core)
+  resources:
+    acr_name: "finazcore251027acr"
+
