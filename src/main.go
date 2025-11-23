@@ -50,25 +50,32 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // handler fetches transaction data from FIO API and writes it to Azure Blob Storage.
 func handler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received request from %s", r.RemoteAddr)
+
 	cred, err := azAuth()
 	if err != nil {
+		log.Printf("Authentication failed: %v", err)
 		http.Error(w, "Authentication failed", http.StatusInternalServerError)
 		return
 	}
 
 	startDate, endDate := getDatesFromQuery(r)
+	log.Printf("Fetching transactions from %s to %s", startDate, endDate)
+
 	if debug {
 		log.Printf("Using startDate=%s and endDate=%s\n", startDate, endDate)
 	}
 
 	token, err := retrieveKvSecret("fio-read-token", cred)
 	if err != nil {
+		log.Printf("Failed to retrieve secret: %v", err)
 		http.Error(w, "Failed to retrieve secret", http.StatusInternalServerError)
 		return
 	}
 
 	data, err := FetchTransactionData(token, startDate, endDate, format)
 	if err != nil {
+		log.Printf("Error fetching data: %v", err)
 		http.Error(w, fmt.Sprintf("Error fetching data: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -81,6 +88,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "\nError writing blob: %v", err)
 		return
 	}
+	log.Printf("Successfully wrote blob: %s", blobName)
 	fmt.Fprintf(w, "\n%s", result)
 }
 
@@ -129,7 +137,12 @@ func FetchTransactionData(token, startDate, endDate, format string) ([]byte, err
 		log.Printf("Making API call to: %s\n", fullURL)
 	}
 
-	resp, err := http.Get(fullURL)
+	// Create HTTP client with timeout to prevent hanging
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Get(fullURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call API: %w", err)
 	}
