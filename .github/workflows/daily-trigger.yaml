@@ -1,0 +1,70 @@
+name: 'Daily Bank Transaction Pull'
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * *'  # Daily at 9:00 AM UTC
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  trigger-bank-pull:
+    environment: main
+    name: 'Trigger Bank Transaction Pull'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.UAMI_ID }}
+          tenant-id: ${{ vars.TENANT_ID }}
+          subscription-id: ${{ vars.SUB_ID }}
+
+      - name: Load Infrastructure Config
+        id: config
+        run: |
+          # Derive container app name from project name (matches Terraform naming: ${var.project_name_no_dash}aca)
+          ACA_NAME="${{ vars.PROJECT_NAME_NODASH }}aca"
+          echo "RG_NAME=${{ vars.RG_NAME }}" >> $GITHUB_OUTPUT
+          echo "ACA_NAME=$ACA_NAME" >> $GITHUB_OUTPUT
+
+      - name: Retrieve Container App FQDN
+        id: get-fqdn
+        run: |
+          FQDN=$(az containerapp show \
+            --name "${{ steps.config.outputs.ACA_NAME }}" \
+            --resource-group "${{ steps.config.outputs.RG_NAME }}" \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+
+          if [ -z "$FQDN" ]; then
+            echo "❌ FQDN not found for container app"
+            exit 1
+          fi
+
+          echo "FQDN=$FQDN"
+          echo "FQDN=$FQDN" >> $GITHUB_OUTPUT
+
+      - name: Trigger Bank Data Pull
+        run: |
+          echo "📞 Triggering bank transaction pull at: https://${{ steps.get-fqdn.outputs.FQDN }}"
+          
+          RESPONSE=$(curl --fail --show-error --silent --write-out "\n%{http_code}" \
+            "https://${{ steps.get-fqdn.outputs.FQDN }}")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+          
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Bank transaction pull triggered successfully"
+            echo "Response: $BODY"
+          else
+            echo "❌ Request failed with HTTP $HTTP_CODE"
+            echo "Response: $BODY"
+            exit 1
+          fi
