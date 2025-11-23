@@ -36,9 +36,16 @@ func main() {
 	// Configure the logger for local development.
 	// In production you may want to redirect logs to a file or disable debug logs.
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/", handler)
 	log.Println("Server is starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+// healthHandler responds to health checks without doing any heavy operations
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 // handler fetches transaction data from FIO API and writes it to Azure Blob Storage.

@@ -41,6 +41,18 @@ resource "azurerm_container_app" "bank_pull" {
       cpu    = 0.25
       memory = "0.5Gi"
 
+      liveness_probe {
+        transport = "HTTP"
+        path      = "/health"
+        port      = 8080
+      }
+
+      readiness_probe {
+        transport = "HTTP"
+        path      = "/health"
+        port      = 8080
+      }
+
       env {
         name  = "AZURE_CLIENT_ID"
         value = local.app_identity_client_id
