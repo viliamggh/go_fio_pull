@@ -25,6 +25,7 @@ data "terraform_remote_state" "core_infra" {
     storage_account_name = var.core_infra_sa
     container_name       = var.core_infra_container
     key                  = var.core_infra_key
+    use_azuread_auth     = true  # Use Azure AD authentication instead of access keys
   }
 }
 
