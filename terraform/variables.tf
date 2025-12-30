@@ -40,3 +40,9 @@ variable "core_infra_key" {
   type        = string
   description = "State file key for fin_az_core terraform state"
 }
+
+variable "account_aliases" {
+  type        = string
+  description = "Comma-separated list of account aliases to process"
+  default     = "invoices"
+}

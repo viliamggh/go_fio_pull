@@ -77,6 +77,11 @@ resource "azurerm_container_app" "bank_pull" {
         name  = "STORAGE_CONTAINER_NAME"
         value = local.storage_container_name
       }
+
+      env {
+        name  = "ACCOUNT_ALIASES"
+        value = var.account_aliases
+      }
     }
   }
 

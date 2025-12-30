@@ -130,7 +130,8 @@ jobs:
             -var 'core_infra_rg=${{ steps.tf_config.outputs.core_rg }}' \
             -var 'core_infra_sa=${{ steps.tf_config.outputs.core_sa }}' \
             -var 'core_infra_container=${{ steps.tf_config.outputs.core_container }}' \
-            -var 'core_infra_key=${{ steps.tf_config.outputs.core_key }}'
+            -var 'core_infra_key=${{ steps.tf_config.outputs.core_key }}' \
+            -var 'account_aliases=${{ vars.ACCOUNT_ALIASES }}'
 
         # Terraform Apply
       - name: Terraform Apply
@@ -142,4 +143,5 @@ jobs:
             -var 'core_infra_rg=${{ steps.tf_config.outputs.core_rg }}' \
             -var 'core_infra_sa=${{ steps.tf_config.outputs.core_sa }}' \
             -var 'core_infra_container=${{ steps.tf_config.outputs.core_container }}' \
-            -var 'core_infra_key=${{ steps.tf_config.outputs.core_key }}'
+            -var 'core_infra_key=${{ steps.tf_config.outputs.core_key }}' \
+            -var 'account_aliases=${{ vars.ACCOUNT_ALIASES }}'
