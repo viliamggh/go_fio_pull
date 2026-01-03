@@ -34,6 +34,12 @@ resource "azurerm_container_app" "bank_pull" {
     server   = local.acr_login_server
     identity = local.app_identity_id
   }
+
+  secret {
+    name  = "api-key"
+    value = data.azurerm_key_vault_secret.fio_api_key.value
+  }
+
   template {
     container {
       name   = replace(var.image_name, "_", "")
@@ -81,6 +87,11 @@ resource "azurerm_container_app" "bank_pull" {
       env {
         name  = "ACCOUNT_ALIASES"
         value = var.account_aliases
+      }
+
+      env {
+        name        = "API_KEY"
+        secret_name = "api-key"
       }
     }
   }

@@ -53,8 +53,9 @@ jobs:
       - name: Trigger Bank Data Pull
         run: |
           echo "📞 Triggering bank transaction pull at: https://${{ steps.get-fqdn.outputs.FQDN }}"
-          
+
           RESPONSE=$(curl --fail --show-error --silent --write-out "\n%{http_code}" \
+            -H "X-API-Key: ${{ secrets.FIO_PULL_API_KEY }}" \
             "https://${{ steps.get-fqdn.outputs.FQDN }}")
           
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)

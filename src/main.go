@@ -27,6 +27,7 @@ var (
 	storageContainerName = getEnvOrDefault("STORAGE_CONTAINER_NAME", "raw")
 	accountAliases       = getEnvOrDefault("ACCOUNT_ALIASES", "invoices")
 	httpClient           = newHTTPClient(getEnvDuration("HTTP_CLIENT_TIMEOUT", defaultHTTPTimeout))
+	apiKey               = os.Getenv("API_KEY")
 )
 
 // getEnvOrDefault retrieves an environment variable or returns a default value.
@@ -74,12 +75,34 @@ type AccountResult struct {
 	Error   error
 }
 
+// validateAPIKey is a middleware that validates the X-API-Key header
+func validateAPIKey(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Skip validation for health checks
+		if r.URL.Path == "/health" {
+			next(w, r)
+			return
+		}
+
+		providedKey := r.Header.Get("X-API-Key")
+		if providedKey == "" {
+			http.Error(w, "Missing X-API-Key header", http.StatusUnauthorized)
+			return
+		}
+		if providedKey != apiKey {
+			http.Error(w, "Invalid API key", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
 func main() {
 	// Configure the logger for local development.
 	// In production you may want to redirect logs to a file or disable debug logs.
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	http.HandleFunc("/health", healthHandler)
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", validateAPIKey(handler))
 	log.Println("Server is starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

@@ -34,6 +34,12 @@ data "azurerm_resource_group" "app_rg" {
   name = var.rg_name
 }
 
+# Data source for API key secret from Key Vault
+data "azurerm_key_vault_secret" "fio_api_key" {
+  name         = "fio-pull-api-key"
+  key_vault_id = local.key_vault_id
+}
+
 # Local variables for go_fio_pull's own resources
 locals {
   # App resource group (where Container App lives)
