@@ -18,7 +18,7 @@ resource "azurerm_container_app" "bank_pull" {
   }
   ingress {
     external_enabled           = true
-    allow_insecure_connections = true
+    allow_insecure_connections = false  # CHANGED: Force HTTPS only
     traffic_weight {
       latest_revision = true
       percentage      = 100
